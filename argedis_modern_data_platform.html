@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argedis - Migration vers dbt + Databricks | Autonomie & Gouvernance</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fd6603 0%, #7b2de4 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #fd6603 0%, #7b2de4 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 3px solid #e0e0e0;
+            background: #f5f5f5;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -3px;
+            min-width: 140px;
+        }
+        
+        .tab-btn:hover {
+            background: #efefef;
+            color: #fd6603;
+        }
+        
+        .tab-btn.active {
+            color: #fd6603;
+            border-bottom-color: #fd6603;
+            background: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #fd6603;
+            padding-bottom: 10px;
+        }
+        
+        .stage-box {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #fd6603;
+        }
+        
+        .stage-box h3 {
+            color: #fd6603;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stage-icon {
+            background: #fd6603;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .stage-box p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .issue-box {
+            background: #fce4ec;
+            border-left: 4px solid #d32f2f;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            color: #555;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .comparison-table thead {
+            background: linear-gradient(135deg, #fd6603 0%, #7b2de4 100%);
+            color: white;
+        }
+        
+        .comparison-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .comparison-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .current {
+            background: #ffe6e6;
+        }
+        
+        .future {
+            background: #e6f2ff;
+        }
+        
+        .tools-list {
+            list-style: none;
+            margin: 12px 0;
+        }
+        
+        .tools-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            color: #555;
+        }
+        
+        .tools-list li:before {
+            content: "→ ";
+            color: #fd6603;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .roi-card {
+            background: linear-gradient(135deg, #fd6603 0%, #7b2de4 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .roi-card .roi-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+        
+        .roi-card .roi-label {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+        
+        .roi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .roi-item {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #fd6603;
+        }
+        
+        .roi-item strong {
+            color: #fd6603;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .benefit-box {
+            background: #e8f5e9;
+            border-left: 4px solid #2e7d32;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .benefit-box strong {
+            color: #2e7d32;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            color: #666;
+            text-align: center;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+        }
+
+        a {
+            color: #fd6603;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+            color: #7b2de4;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .tab-btn {
+                min-width: 120px;
+                padding: 12px;
+                font-size: 0.85em;
+            }
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 Argedis - Modern Data Platform</h1>
+            <p>Autonomie métier + Gouvernance centralisée | AWS → Databricks | dbt + Claude</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('context')">Contexte</button>
+            <button class="tab-btn" onclick="switchTab('challenges')">Enjeux</button>
+            <button class="tab-btn" onclick="switchTab('solution')">Solution dbt</button>
+            <button class="tab-btn" onclick="switchTab('process')">Processus Avant/Après</button>
+            <button class="tab-btn" onclick="switchTab('roi')">ROI & Bénéfices</button>
+            <button class="tab-btn" onclick="switchTab('roadmap')">Roadmap</button>
+        </div>
+
+        <!-- TAB 1: CONTEXT -->
+        <div id="context" class="tab-content active">
+            <h2 class="section-title">📍 Contexte : Argedis</h2>
+            
+            <div class="stage-box">
+                <h3><span class="stage-icon">🏢</span> Profil Client</h3>
+                <table class="comparison-table">
+                    <tr>
+                        <td><strong>Entité :</strong></td>
+                        <td>Argedis (filiale logistique Total Energies)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Secteur:</strong></td>
+                        <td>Énergie & Mobilité - Réseau de distribution</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Infrastructure:</strong></td>
+                        <td>~200 stations d'autoroutes + grands axes en France</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Equipe Data:</strong></td>
+                        <td>2 Data Engineers (Johan + Tom) avec ~1 ETP dédié à la data</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Localisation:</strong></td>
+                        <td>Région parisienne (Rueil-Malmaison)</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">🔄</span> Infrastructure Actuelle</h3>
+                <p><strong>Deux écosystèmes de données en parallèle :</strong></p>
+                
+                <div style="margin: 15px 0;">
+                    <strong>1️⃣ Environnement Cloud (AWS Redshift) :</strong>
+                    <ul class="tools-list">
+                        <li>Data Warehouse centralisé sur Redshift</li>
+                        <li>Stockage de données consolidées</li>
+                    </ul>
+                </div>
+                
+                <div style="margin: 15px 0;">
+                    <strong>2️⃣ Environnement On-Prem (SQL Server) :</strong>
+                    <ul class="tools-list">
+                        <li>Base de données MS SQL Server LSSQF</li>
+                        <li>Collecte de données de différents silos</li>
+                        <li>Intégration via procédures stockées</li>
+                    </ul>
+                </div>
+
+                <div style="margin: 15px 0;">
+                    <strong>3️⃣ Couche Présentation :</strong>
+                    <ul class="tools-list">
+                        <li><strong>Power BI</strong> pour création de dashboards</li>
+                        <li>Accès via gateway AWS</li>
+                    </ul>
+                </div>
+
+                <div class="issue-box" style="background: #fce4ec; border-left-color: #d32f2f;">
+                    <strong>⚠️ Problèmes Identifiés :</strong><br>
+                    • <strong>Silos de données :</strong> Données dispersées entre différents services<br>
+                    • <strong>Pas d'orchestration automatique :</strong> Procédures stockées + SFTP manuels<br>
+                    • <strong>Tests limités :</strong> Contrôles de qualité restreints par capacité on-prem<br>
+                    • <strong>Pas de CI/CD :</strong> Absence de pipeline d'intégration continue
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">🎯</span> Direction Stratégique</h3>
+                <div class="benefit-box" style="background: #e3f2fd; border-left-color: #1976d2; margin-bottom: 12px;">
+                    <strong>Décision Prise:</strong> Migration vers <strong>Databricks</strong><br>
+                    <em>Objectifs:</em> Centralisation, gouvernance, optimisation coûts
+                </div>
+                <div class="benefit-box" style="background: #e3f2fd; border-left-color: #1976d2;">
+                    <strong>Partenaire Implémentation:</strong> <strong>CGI</strong><br>
+                    <em>Rôle:</em> Support technique, best practices, production readiness
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">💼</span> Équipe & Ressources</h3>
+                <ul class="tools-list">
+                    <li><strong>Taille réduite :</strong> 2 Data Engineers (Johan + Tom) seulement</li>
+                    <li><strong>Capacité limitée :</strong> ~1 ETP dédié à la data (reste absorbed par intranet project)</li>
+                    <li><strong>Implication métier :</strong> Data analysts au sein des différents services (Market, Opérations, RH)</li>
+                    <li><strong>Autonomie services :</strong> Forte culture décentralisée chez Argedis (force et faiblesse)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- TAB 2: CHALLENGES -->
+        <div id="challenges" class="tab-content">
+            <h2 class="section-title">⚠️ Défis & Enjeux Métier</h2>
+            
+            <div class="stage-box">
+                <h3><span class="stage-icon">1</span> Silos de Données & Manque de Centralisation</h3>
+                <div class="issue-box">
+                    <strong>Situation:</strong> Données fragmentées entre services et écosystèmes
+                </div>
+                <ul class="tools-list">
+                    <li>Redshift + on-prem SQL Server = 2 sources de vérité différentes</li>
+                    <li>Données isolées par service (Opérations, Finance, RH, Market)</li>
+                    <li>Pas de vue 360° des données pour analyses cross-fonctionnelles</li>
+                    <li>Équipes perdent temps à "courir après la donnée"</li>
+                </ul>
+                <p style="margin-top: 12px; color: #666;"><strong>Impact :</strong> Inefficacité, analyses incomplètes, collaboration difficile</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">2</span> Qualité des Données & Observabilité Faible</h3>
+                <div class="issue-box">
+                    <strong>Problème majeur:</strong> Tests de fiabilité très limités par contraintes on-prem
+                </div>
+                <ul class="tools-list">
+                    <li>Contrôles de qualité manuels et peu fréquents (hebdo au mieux)</li>
+                    <li>Aucun moyen d'évaluer fiabilité des données avant utilisation</li>
+                    <li><strong>🚨 Cas réel identifié:</strong> Primes annoncées aux équipes opérationnelles → découverte post-facto que data était mauvaise</li>
+                    <li>Impact financier & reputationnel en cas d'erreurs (redistribution de primes, débat interne)</li>
+                </ul>
+                <p style="margin-top: 12px; color: #d32f2f; font-weight: bold;">⚠️ Risque: Décisions métier sur données non-validées</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">3</span> Dépendance aux Data Engineers</h3>
+                <div class="issue-box">
+                    <strong>Workflow actuel:</strong> Métier demande → DE code → 1-4 semaines pour livraison
+                </div>
+                <ul class="tools-list">
+                    <li>2 DE surchargés (1 ETP seulement dédié à la data)</li>
+                    <li>Data analysts métier ne peuvent pas explorer/prototyper rapidement</li>
+                    <li>Processus long et bloquant pour nouvelles analyses</li>
+                    <li>Forte dépendance = bottleneck organisationnel</li>
+                </ul>
+                <p style="margin-top: 12px; color: #666;"><strong>Impact:</strong> Métiers frustrés, innovations bloquées, productivité réduite</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">4</span> Pas d'Orchestration Automatique</h3>
+                <div class="issue-box">
+                    <strong>Infrastructure :</strong> Procédures stockées + SFTP manuel = processus non-automatisé
+                </div>
+                <ul class="tools-list">
+                    <li>Refresh des données = manuel/semi-automatisé</li>
+                    <li>Pas de CI/CD pour déployer transformations de manière fiable</li>
+                    <li>Absence de visibilité : Quand un process échoue ? Pourquoi ? Qui le sait ?</li>
+                    <li>Troubleshooting des erreurs = très long (45-60 min pour investigation)</li>
+                </ul>
+                <p style="margin-top: 12px; color: #666;"><strong>Impact :</strong> Data stale possible, risques downtime silencieux</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">5</span> Optimisation des Coûts Cloud</h3>
+                <div class="issue-box">
+                    <strong>Situation:</strong> Budget limité + migration Databricks = factures potentiellement très élevées
+                </div>
+                <ul class="tools-list">
+                    <li>Computes Databricks mal maîtrisés (clusters non-optimisés)</li>
+                    <li>Pas de culture cost-awareness dans les équipes</li>
+                    <li>2 DE ont peu de temps pour l'optimisation post-migration</li>
+                    <li>Besoin de contrôle de consommation des ressources (warehouses)</li>
+                </ul>
+                <p style="margin-top: 12px; color: #d32f2f; font-weight: bold;">💸 Risque : Facture Databricks 2-3x supérieure à la prévision initiale</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">6</span> Conduite du Changement & Autonomie Services</h3>
+                <div class="issue-box">
+                    <strong>Tension clé :</strong> Centraliser données + gouvernance TOUT EN laissant les services autonomes
+                </div>
+                <ul class="tools-list">
+                    <li><strong>Force Argedis :</strong> Métiers en avance (dashboards, analyses internes). Bonne base pour l'adoption.</li>
+                    <li><strong>Faiblesse :</strong> Beaucoup de silos = risques de "wild analytics" (chacun sa solution)</li>
+                    <li>Grosse transformation organisationnelle nécessaire</li>
+                    <li>Formation nécessaire sur de nouveaux outils et pratiques</li>
+                </ul>
+                <p style="margin-top: 12px; color: #666;"><strong>Impact :</strong> Change management important = temps d'implémentation plus long</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">📊</span> Synthèse des Défis</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Défi</th>
+                            <th>Impact Direct</th>
+                            <th>Urgence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="current">
+                            <td>Silos de données</td>
+                            <td>Analyses incomplètes, temps perdu</td>
+                            <td>🔴 Haute</td>
+                        </tr>
+                        <tr class="current">
+                            <td>Qualité & Fiabilité</td>
+                            <td>Risque financier (primes), réputation</td>
+                            <td>🔴 Critique</td>
+                        </tr>
+                        <tr class="current">
+                            <td>Dépendance DE</td>
+                            <td>Bottleneck, équipes frustrées</td>
+                            <td>🟠 Haute</td>
+                        </tr>
+                        <tr class="current">
+                            <td>Orchestration</td>
+                            <td>Data stale, downtime invisible</td>
+                            <td>🟠 Haute</td>
+                        </tr>
+                        <tr class="current">
+                            <td>Coûts cloud</td>
+                            <td>Budget dépassé</td>
+                            <td>🟠 Haute</td>
+                        </tr>
+                        <tr class="current">
+                            <td>Change management</td>
+                            <td>Adoption lente, résistance</td>
+                            <td>🟠 Haute</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: SOLUTION -->
+        <div id="solution" class="tab-content">
+            <h2 class="section-title">✨ Solution: dbt + Databricks + Claude</h2>
+            
+            <div class="stage-box">
+                <h3><span class="stage-icon">🎯</span> Vision: 3 Piliers</h3>
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>1️⃣ Données Fiabilisées (dbt)</strong><br>
+                    Framework transformation SQL + tests intégrés = data quality automatique<br>
+                    <em>Pour Argedis :</em> Passer de 0% test coverage → 100% (bronze, silver, gold)
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>2️⃣ Gouvernance Centralisée (dbt + Databricks)</strong><br>
+                    Semantic Layer pour exposer les métriques officielles + Unity Catalog pour gérer l'accès = single source of truth<br>
+                    <em>Pour Argedis :</em> Métiers utilisent données certifiées, pas des versions locales
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32;">
+                    <strong>3️⃣ Autonomie Métier (dbt + Claude)</strong><br>
+                    Analysts peuvent explorer, créer des rapports rapidement via une interface en langage naturel (Claude)<br>
+                    <em>Pour Argedis :</em> 2 DE libérés pour la stratégie, métiers plus actifs
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">⚙️</span> Architecture Proposée</h3>
+                <p style="text-align: center; margin: 15px 0;">
+                    <strong>Redshift/on-prem → Databricks (Unity Catalog)</strong><br>
+                    ↓<br>
+                    <strong>dbt Cloud (transformation + tests + orchestration + semantic layer)</strong><br>
+                    ↓<br>
+                    <strong>Power BI / Looker / Claude (presentation layer)</strong>
+                </p>
+                
+                <p style="margin-top: 15px; padding: 12px; background: #f5f5f5; border-radius: 4px;">
+                    <strong>dbt Role :</strong><br>
+                    • Centralise TOUTE transformation (SQL) → plus de logique dans Power BI<br>
+                    • Tests automatiques à chaque déploiement (CI/CD)<br>
+                    • Orchestration state-aware (optimise Databricks compute)<br>
+                    • Semantic Layer : Analysts posent questions → métriques calculées automatiquement
+                </p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">🤖</span> Claude + MCP dbt: Talk-to-Data</h3>
+                <div style="margin: 15px 0; padding: 12px; background: #f3e5f5; border-radius: 4px;">
+                    <strong>Use Case 1 : Exploration Rapide</strong><br>
+                    Analyst Finance : <em>"Montre-moi revenu par région pour Q4 2024, avec comparaison YoY"</em><br>
+                    → Claude génère SQL automatiquement via dbt semantic layer<br>
+                    → Retourne tableau + visualisation en 30 secondes<br>
+                    <strong>Gain :</strong> -45 min vs email à Johan
+                </div>
+
+                <div style="margin: 15px 0; padding: 12px; background: #f3e5f5; border-radius: 4px;">
+                    <strong>Use Case 2 : Drafting Dashboard</strong><br>
+                    Analyst Opérations : <em>"Crée un dashboard pour manager des stations : KPIs ventes, margin, performance"</em><br>
+                    → Claude explore catalog dbt, trouve modèles pertinents, draft SQL queries<br>
+                    → Suggère Power BI layout / Looker tiles<br>
+                    <strong>Gain:</strong> 2-3 jours vs 1-2 semaines de back-and-forth
+                </div>
+
+                <div style="margin: 15px 0; padding: 12px; background: #f3e5f5; border-radius: 4px;">
+                    <strong>Use Case 3 : Data Quality Self-Service</strong><br>
+                    Analyst RH : <em>"Vérifie que mes données de compensation sont complètes et sans doublons"</em><br>
+                    → Claude lance tests dbt associés, résume les résultats, suggère des actions<br>
+                    <strong>Gain :</strong> Feedback immédiat vs contrôles hebdos
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">✅</span> Avantages pour Argedis</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Dimension</th>
+                            <th>Bénéfice Direct</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="future">
+                            <td><strong>Data Quality</strong></td>
+                            <td>0% → 100% test coverage. Primes issues éliminées. Confiance métier ↑↑</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Productivité DE</strong></td>
+                            <td>-50% temps troubleshooting. Orchestration automatisée. CI/CD built-in</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Autonomie Métier</strong></td>
+                            <td>Analysts: 70% questions auto-répondues (via Claude). Moins dépendant DE</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Time-to-Market</strong></td>
+                            <td>Nouveaux rapports: 1-2 jours (vs 1-4 semaines). Réactivité ↑↑</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Coûts Databricks</strong></td>
+                            <td>State-aware orchestration -40% credits. Queries optimisées -15%</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Gouvernance</strong></td>
+                            <td>Semantic layer = single source of truth. Lineage tracé. Audit ready</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 4: PROCESS BEFORE/AFTER -->
+        <div id="process" class="tab-content">
+            <h2 class="section-title">🔄 Processus : Avant vs Après dbt</h2>
+            
+            <div class="stage-box">
+                <h3 style="color: #d32f2f;"><span class="stage-icon" style="background: #d32f2f;">❌</span> Avant : Workflow Fragmenté & Manuel</h3>
+                <p><strong>Cycle typique de création d'une analyse/rapport:</strong></p>
+                
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Étape</th>
+                            <th>Processus Actuel</th>
+                            <th>Temps</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="current">
+                            <td><strong>1. Demande Métier</strong></td>
+                            <td>Analyst métier envoie email à team data avec spécifications</td>
+                            <td>1 jour</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>2. Planning</strong></td>
+                            <td>DE évalue charge de travail, planifie slot (Redshift + on-prem = complexe)</td>
+                            <td>1-2 jours</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>3. Écriture SQL</strong></td>
+                            <td>DE écrit queries ad-hoc sur Redshift + on-prem SQL Server</td>
+                            <td>2-3 jours</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>4. Création Rapport</strong></td>
+                            <td>DE crée Power BI + DAX transformations (logique métier dispersée)</td>
+                            <td>1-2 jours</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>5. Testing Métier</strong></td>
+                            <td>Analyst teste rapport, découvre incohérences/bugs</td>
+                            <td>1 jour</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>6. Troubleshooting</strong></td>
+                            <td>Investigation manuelle pour trouver source du bug (pas de lineage automatique)</td>
+                            <td>1-2 jours</td>
+                        </tr>
+                        <tr class="current">
+                            <td><strong>7. Déploiement</strong></td>
+                            <td>Déploiement manuel (aucun CI/CD)</td>
+                            <td>0.5 jour</td>
+                        </tr>
+                        <tr style="background: #ffe6e6; font-weight: bold;">
+                            <td><strong>TOTAL</strong></td>
+                            <td><strong>Processus long et bloquant</strong></td>
+                            <td><strong>5-7 jours</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p style="margin-top: 15px; color: #d32f2f; font-weight: bold;">⚠️ Problèmes Clés :</p>
+                <ul class="tools-list">
+                    <li><strong>❌ Pas de réutilisabilité :</strong> Chaque query écrite ad-hoc → duplication</li>
+                    <li><strong>❌ Pas de tests :</strong> Données jamais validées avant utilisation</li>
+                    <li><strong>❌ Logique dispersée :</strong> Transformations dans SQL + Power BI DAX = confusion</li>
+                    <li><strong>❌ Bottleneck :</strong> 2 DE pour toute l'entreprise → goulot d'étranglement</li>
+                    <li><strong>❌ Documentation absente :</strong> Personne ne sait qui utilise quoi, d'où vient la donnée</li>
+                    <li><strong>❌ Risques qualité :</strong> Bugs découverts tard (après déploiement métier)</li>
+                </ul>
+            </div>
+
+            <div class="stage-box">
+                <h3 style="color: #2e7d32;"><span class="stage-icon" style="background: #2e7d32;">✅</span> Après : Workflow Automatisé & Collaboratif</h3>
+                <p><strong>Même scenario avec dbt :</strong></p>
+                
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Étape</th>
+                            <th>Processus dbt</th>
+                            <th>Temps</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="future">
+                            <td><strong>1. Demande Métier</strong></td>
+                            <td>Analyst métier consulte dbt Semantic Layer (ou pose question directement)</td>
+                            <td>Immédiat</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>2. Exploration</strong></td>
+                            <td>Analyst/DE explore dbt catalog (models, descriptions, lineage)</td>
+                            <td>5 min</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>3. Écriture SQL</strong></td>
+                            <td>DE écrit/adapte query dans dbt (réutilise macros, modèles existants)</td>
+                            <td>30 min</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>4. Tests Automatiques</strong></td>
+                            <td>dbt tests valident automatiquement (NOT NULL, UNIQUE, custom checks)</td>
+                            <td>5 min (automatic)</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>5. CI/CD</strong></td>
+                            <td>Pull Request → tests bloquent bad data → merge approuvé</td>
+                            <td>10 min</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>6. Création Rapport</strong></td>
+                            <td>Analyst crée Power BI/Looker (logique dans dbt, pas DAX)</td>
+                            <td>30 min</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>7. Déploiement</strong></td>
+                            <td>Orchestration automatique (dbt Cloud state-aware run)</td>
+                            <td>5 min (automatic)</td>
+                        </tr>
+                        <tr style="background: #e6ffe6; font-weight: bold;">
+                            <td><strong>TOTAL</strong></td>
+                            <td><strong>Processus rapide et fiable</strong></td>
+                            <td><strong>1-2 heures</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p style="margin-top: 15px; color: #2e7d32; font-weight: bold;">✅ Avantages Clés :</p>
+                <ul class="tools-list">
+                    <li><strong>✅ Réutilisabilité :</strong> Macros + packages dbt = code réutilisable (DRY principle)</li>
+                    <li><strong>✅ Tests intégrés :</strong> CI/CD bloque les bugs avant production</li>
+                    <li><strong>✅ Logique centralisée :</strong> SQL dans dbt → Power BI juste visual</li>
+                    <li><strong>✅ Zéro bottleneck :</strong> Analysts autonomes (70-80% analyses sans DE)</li>
+                    <li><strong>✅ Documentation auto :</strong> dbt Explorer trace lineage + descriptions (always in sync)</li>
+                    <li><strong>✅ Qualité garantie :</strong> 100% test coverage → données certifiées avant utilisation</li>
+                </ul>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">📊</span> Comparaison Détaillée: Avant vs Après</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Dimension</th>
+                            <th class="current">Avant (Actuel)</th>
+                            <th class="future">Après (dbt)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Timeline</strong></td>
+                            <td class="current">5-7 jours</td>
+                            <td class="future">1-2 heures</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Qualité Données</strong></td>
+                            <td class="current">Non-testée (découverte post-facto)</td>
+                            <td class="future">100% validée (CI/CD blocks bad data)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Processus</strong></td>
+                            <td class="current">Manuel + email back-and-forth</td>
+                            <td class="future">Automatisé (PR + CI/CD)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dépendance DE</strong></td>
+                            <td class="current">Haute (bottleneck)</td>
+                            <td class="future">Basse (autonomie métier)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Logique Métier</strong></td>
+                            <td class="current">Dispersée (SQL + DAX)</td>
+                            <td class="future">Centralisée (dbt SQL)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Documentation</strong></td>
+                            <td class="current">Manuel, souvent stale</td>
+                            <td class="future">Auto-generated (always in sync)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Troubleshooting</strong></td>
+                            <td class="current">1-2 jours manuel</td>
+                            <td class="future">5 min (lineage auto)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Réutilisabilité</strong></td>
+                            <td class="current">Aucune (code ad-hoc)</td>
+                            <td class="future">Maximale (macros + packages)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">👥</span> Impact sur la Collaboration Business/Data Teams</h3>
+                
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>Avant : Modèle Hiérarchique</strong><br>
+                    Métier → Email à DE → DE code → Métier teste → (Bugs?) → DE fix → Livraison<br>
+                    <em>Caractérisé par :</em> Attente longue, dépendance, back-and-forth, frustration
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32;">
+                    <strong>Après : Modèle Collaboratif</strong><br>
+                    Métier explore → Crée demande spécifique → DE/Métier créent ensemble → Tests auto ✅ → Déploiement auto<br>
+                    <em>Caractérisé par :</em> Autonomie métier, gouvernance DE, collaboration fluide, livraison rapide
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">🤖</span> Évolution Future : Claude + MCP dbt (Self-Service Analytics)</h3>
+                <p style="margin: 15px 0;">
+                    <strong>Vision Long-terme :</strong> Accélérer encore plus les interactions business/data teams en permettant 
+                    aux analysts métier de poser des questions directement sans intermédiaire technique.
+                </p>
+                
+                <div class="benefit-box" style="background: #f3e5f5; border-left-color: #7b1fa2; margin-bottom: 15px;">
+                    <strong>Scenario Futur : Analyst via Claude Chat</strong><br>
+                    Analyst Métier: <em>"Montre-moi le revenu par région pour Q4 2024, avec comparaison YoY"</em><br>
+                    → Claude accède dbt semantic layer (via MCP protocol)<br>
+                    → Génère SQL automatiquement<br>
+                    → Exécute sur Databricks<br>
+                    → Retourne tableau + vizualisation en 2 minutes<br>
+                    <strong>vs Avant:</strong> 5-7 jours d'attente
+                </div>
+
+                <div class="benefit-box" style="background: #f3e5f5; border-left-color: #7b1fa2; margin-bottom: 15px;">
+                    <strong>5 Use Cases Clés pour Argedis:</strong><br>
+                    <ul class="tools-list" style="margin-top: 8px;">
+                        <li><strong>Finance :</strong> Analyse primes mensuelles → Instant feedback</li>
+                        <li><strong>Opérations :</strong> Performance stations-service par région → Self-service</li>
+                        <li><strong>RH :</strong> Corrélation salaire/turnover → Autonomie métier</li>
+                        <li><strong>Data Quality :</strong> Vérification doublons/nulls → Immédiat</li>
+                        <li><strong>Dashboard Drafting :</strong> Prototype layouts en heures (vs semaines)</li>
+                    </ul>
+                </div>
+
+                <div class="benefit-box" style="background: #f3e5f5; border-left-color: #7b1fa2;">
+                    <strong>Impact sur Collaboration Business/Data Teams :</strong><br>
+                    • <strong>Analysts métier :</strong> 70-80% analyses self-service (autonomie max)<br>
+                    • <strong>Data Engineers :</strong> Focus architecture & governance (valeur haute)<br>
+                    • <strong>Résultat :</strong> Zéro bottleneck, collaboration fluide, données gouvernées
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: ROI & BÉNÉFICES -->
+        <div id="roi" class="tab-content">
+            <h2 class="section-title">💰 ROI & Bénéfices Quantifiés</h2>
+            
+            <div class="stage-box">
+                <h3><span class="stage-icon">📈</span> Modèle de Coûts</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th style="text-align: right;">Estimation Année 1</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="future">
+                            <td><strong>dbt Cloud License</strong> (teams tier)</td>
+                            <td style="text-align: right;">~€30k</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Databricks (DBU)</strong> (optimisé dbt)</td>
+                            <td style="text-align: right;">~€80-120k</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Partenaire CGI</strong> (migration + training)</td>
+                            <td style="text-align: right;">~€150-200k (6-9 mois)</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Claude API</strong> (usage team)</td>
+                            <td style="text-align: right;">~€5-10k</td>
+                        </tr>
+                        <tr style="background: #e8f5e9; font-weight: bold;">
+                            <td><strong>Total Année 1</strong></td>
+                            <td style="text-align: right; background: #e8f5e9;">~€265-360k</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">💡</span> Économies & Gains Directs</h3>
+                
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>1️⃣ Productivité DE (-40% temps support)</strong><br>
+                    • Avant : 2 DE = 1 occupé support ad-hoc, 1 sur roadmap<br>
+                    • Après : Self-service Claude → 1.5 DE libérés pour innovation<br>
+                    <strong>Valeur :</strong> 1.5 ETP × €90k = €135k/an
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>2️⃣ Coûts Databricks (state-aware orchestration)</strong><br>
+                    • Avant : Procédures stockées + full refresh = 1000 DBU/jour<br>
+                    • Après : dbt state-aware = 600 DBU/day (-40%)<br>
+                    <strong>Valeur :</strong> 400 DBU/day × 365 × 0.5€/DBU = €73k/an
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-bottom: 15px;">
+                    <strong>3️⃣ Réduction Erreurs Data Quality</strong><br>
+                    • Risk actuel : 2-3 incidents/an (primes mal calculées, data stale)<br>
+                    • Impact : Rework, appels téléphone, confiance métier endommagée<br>
+                    <strong>Valeur évitée :</strong> €20-30k/incident × 2 incidents = €40-60k/an
+                </div>
+
+                <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32;">
+                    <strong>4️⃣ Valeur Métier (Time-to-Market + Autonomie)</strong><br>
+                    • Avant : 1 rapport/mois (bottleneck DE)<br>
+                    • Après : 4-5 rapports/mois (métiers autonomes)<br>
+                    <strong>Valeur :</strong> 3-4 rapports × €10k business value = €30-40k/an
+                </div>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">📊</span> Calcul ROI Année 1</h3>
+                <p style="text-align: center; margin: 15px 0; font-size: 1.1em;">
+                    <strong>Total Bénéfices : €135k + €73k + €50k + €35k = €293k/an</strong><br>
+                    <strong>Total Coûts : €310k (mid-range)</strong><br>
+                    <strong style="color: #2e7d32;">ROI Année 1 : -5% (breakeven + 5-10k surplus)</strong>
+                </p>
+                <p style="text-align: center; font-size: 0.95em; color: #666;">
+                    ⚠️ Année 1 = coûts implémentation lourds (CGI). Année 2-3 = ROI très positif (sans coûts migration)
+                </p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">📅</span> ROI Multi-Années</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Année</th>
+                            <th>Bénéfices Annuels</th>
+                            <th>Coûts Annuels</th>
+                            <th>Net</th>
+                            <th>ROI Cumulatif</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="future">
+                            <td><strong>Y1 (2025)</strong></td>
+                            <td style="text-align: right;">€293k</td>
+                            <td style="text-align: right;">€310k</td>
+                            <td style="text-align: right;">-€17k</td>
+                            <td style="text-align: right; font-weight: bold;">-€17k</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Y2 (2026)</strong></td>
+                            <td style="text-align: right;">€293k</td>
+                            <td style="text-align: right;">€115k</td>
+                            <td style="text-align: right;">€178k</td>
+                            <td style="text-align: right; font-weight: bold;">€161k</td>
+                        </tr>
+                        <tr class="future">
+                            <td><strong>Y3 (2027)</strong></td>
+                            <td style="text-align: right;">€300k</td>
+                            <td style="text-align: right;">€115k</td>
+                            <td style="text-align: right;">€185k</td>
+                            <td style="text-align: right; font-weight: bold;">€346k</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="issue-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-top: 30px;">
+                <strong>✅ Résumé Financier :</strong><br>
+                • <strong>Payback Period :</strong> ~15 mois (breakeven Q1 2026)<br>
+                • <strong>3-Year NPV :</strong> ~€346k+ (sans compter scaling métier)<br>
+                • <strong>Intangible Values :</strong> Culture data, autonomie métier, brand credibility = priceless<br>
+            </div>
+        </div>
+
+        
+        <!-- TAB 6: ROADMAP -->
+        <div id="roadmap" class="tab-content">
+            <h2 class="section-title">🗺️ Roadmap : 9 Mois (Janvier - Octobre 2025)</h2>
+
+            <div class="stage-box" style="margin-bottom: 30px;">
+                <h3 style="text-align: center; margin-bottom: 25px;">📅 Timeline Graphique</h3>
+                <svg width="100%" height="120" viewBox="0 0 1000 120" style="margin: 10px 0;" preserveAspectRatio="xMidYMid meet">
+                    <!-- Ligne principale -->
+                    <line x1="40" y1="60" x2="960" y2="60" stroke="#fd6603" stroke-width="3"/>
+                    
+                    <!-- Phase 0: Kickoff -->
+                    <circle cx="100" cy="60" r="11" fill="#fd6603"/>
+                    <text x="75" y="90" font-size="11" font-weight="bold" fill="#333">Kickoff</text>
+                    <text x="85" y="105" font-size="9" fill="#999">Jan</text>
+                    
+                    <!-- Phase 1: POC -->
+                    <circle cx="260" cy="60" r="11" fill="#fd6603"/>
+                    <text x="240" y="90" font-size="11" font-weight="bold" fill="#333">POC</text>
+                    <text x="245" y="105" font-size="9" fill="#999">Feb-Mar</text>
+                    
+                    <!-- Phase 2: Migration -->
+                    <circle cx="420" cy="60" r="11" fill="#fd6603"/>
+                    <text x="390" y="90" font-size="11" font-weight="bold" fill="#333">Migration</text>
+                    <text x="405" y="105" font-size="9" fill="#999">Apr-Jun</text>
+                    
+                    <!-- Phase 3: Orchestration -->
+                    <circle cx="580" cy="60" r="11" fill="#fd6603"/>
+                    <text x="550" y="90" font-size="11" font-weight="bold" fill="#333">Orchestration</text>
+                    <text x="570" y="105" font-size="9" fill="#999">Jul</text>
+                    
+                    <!-- Phase 4: Scaling -->
+                    <circle cx="740" cy="60" r="11" fill="#fd6603"/>
+                    <text x="710" y="90" font-size="11" font-weight="bold" fill="#333">Scaling</text>
+                    <text x="725" y="105" font-size="9" fill="#999">Aug</text>
+                    
+                    <!-- Phase 5: Go-Live -->
+                    <circle cx="900" cy="60" r="13" fill="#2e7d32"/>
+                    <text x="870" y="92" font-size="11" font-weight="bold" fill="#2e7d32">Go-Live</text>
+                    <text x="880" y="107" font-size="9" fill="#999">Sep-Oct</text>
+                </svg>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">1️⃣</span> Kickoff (Janvier)</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>Présentation dbt + validation direction</strong> | Technical discovery | CGI engagement</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">2️⃣</span> POC (Février - Mars)</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>Databricks setup + dbt Cloud integration</strong> | 2-3 models POC | Team training</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">3️⃣</span> Migration (Avril - Juin)</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>Bronze/Silver/Gold layers</strong> | Full data migration | Governance framework</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">4️⃣</span> Orchestration (Juillet)</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>dbt Cloud orchestration</strong> | CI/CD pipelines | Monitoring setup</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">5️⃣</span> Scaling (Août)</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>Self-service analytics pilot</strong> | Early adopters (3-4 analysts) | Feedback loop</p>
+            </div>
+
+            <div class="stage-box">
+                <h3><span class="stage-icon">6️⃣</span> Go-Live (Septembre - Octobre) ✅</h3>
+                <p style="margin: 12px 0; color: #555;"><strong>Production cutover</strong> | Full team scaling | Stable production ready</p>
+            </div>
+
+            <div class="benefit-box" style="background: #e8f5e9; border-left-color: #2e7d32; margin-top: 30px;">
+                <strong style="font-size: 15px;">🎯 Success Criteria (Octobre 2025) :</strong><br><br>
+                ✅ <strong>Data Quality :</strong> 100% test coverage, 0 incidents<br>
+                ✅ <strong>Time-to-Insight :</strong> -80% (1 jour vs 1 mois)<br>
+                ✅ <strong>Autonomie Métier :</strong> 70-80% self-service<br>
+                ✅ <strong>Coûts Cloud :</strong> -40% vs alternatives<br>
+                ✅ <strong>Team Satisfaction :</strong> NPS ≥ 8/10
+            </div>
+        </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active from all buttons
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active to clicked button
+            event.target.classList.add('active');
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+    </script>
+</body>
+</html>
